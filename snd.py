@@ -1,4 +1,8 @@
+import json
+import sys
+import subprocess
 import os
+import requests
 import base64
 import logging
 import asyncio
@@ -79,25 +83,42 @@ async def handle_private_message(event):
     if not PM_LOGGER_GROUP_ID:
         PM_LOGGER_GROUP_ID = await create_storage_group(cawy)
 
-    sender = await event.get_sender()
+    sender = await event.get_sender()  # الحصول على معلومات المُرسل
     chat = await event.get_chat()
 
-    if event.media:
-        file = await event.download_media()
+    if event.media:  # إذا كانت الرسالة تحتوي على وسائط
+        file = await event.download_media()  # تنزيل الوسائط
         if file:
-            await cawy.send_file(
-                PM_LOGGER_GROUP_ID,
-                file,
-                caption=f"👤 {sender.first_name}\n **أرسل وسائط في رسالة خاصة**\nايدي الشخص: `{chat.id}`"
-            )
+            try:
+                # إرسال الملف إلى كروب التخزين
+                await cawy.send_file(
+                    PM_LOGGER_GROUP_ID,
+                    file,
+                    caption=f"👤 {sender.first_name}\n **أرسل وسائط في رسالة خاصة**\nايدي الشخص: `{chat.id}`"
+                )
+                
+                # إرسال رسالة للمستخدم
+                await event.reply("⚠️ سيتم حذف الملف من التخزين الداخلي بعد دقيقتين.")
+
+                # الانتظار لمدة دقيقتين
+                await asyncio.sleep(120)
+
+                # حذف الملف بعد دقيقتين
+                if os.path.exists(file):
+                    os.remove(file)
+                    LOGS.info(f"تم حذف الملف: {file}")
+            except Exception as e:
+                LOGS.error(f"خطأ أثناء معالجة الملف {file}: {str(e)}")
+                await event.reply("⚠️ حدث خطأ أثناء معالجة الملف.")
         else:
-            await event.reply("فشل في تحميل الوسائط.")
+            await event.reply("⚠️ فشل في تحميل الوسائط.")
     
-    else:
+    else:  # إذا لم تكن الرسالة تحتوي على وسائط
         try:
             await cawy.forward_messages(PM_LOGGER_GROUP_ID, event.message, silent=True)
         except Exception as e:
             LOGS.warn(str(e))
+
 
 
 async def get_user_from_event(event):
@@ -637,17 +658,51 @@ async def _(event):
 `.حلويات`
 """)
       
+import os
+from telethon.tl.types import InputPhoto
+
+import os
+from telethon.tl.types import InputPhoto
+from telethon import events
+
+import os
+import asyncio
+from telethon import events
+
 @cawy.on(events.NewMessage(outgoing=True, pattern=".فحص"))
 async def _(event):
-      await event.edit("""**سورس سايرون يعمل بنجاح ✅**
-**ا✦━━━━━━━━━━━━━✦**
-•┊اصدار بايثون ⌯ `3.12.6`
-•┊اصدار تيليثون ⌯ `1.36.0`
-•┊المطور ⌯ @HusseinAli6_6
-**ا✦━━━━━━━━━━━━━✦**"""
-)
+    user = await event.client.get_entity('me')  # الحصول على بيانات المستخدم
 
+    # تحديد مسار الصورة
+    photo_path = f"{user.id}_profile_pic.jpg"
+    was_downloaded = False
 
+    # تنزيل الصورة إذا لم تكن موجودة
+    if not os.path.exists(photo_path):
+        try:
+            await event.client.download_profile_photo(user.id, file=photo_path)
+            was_downloaded = True
+        except Exception as e:
+            print(f"Error downloading profile photo: {e}")
+            photo_path = None
+
+    # إعداد الرسالة
+    message = (
+        f"╭─━━━━━━━━━━━━━━━━━─╮\n"
+        f"• ID: {user.id}\n"
+        f"• Name: {user.first_name} {user.last_name or ''}\n"
+        f"• Username: @{user.username or 'No username'}\n"
+        f"• Messages: 6488\n"
+        f"• Current Time: {event.date.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"╰─━━━━━━━━━━━━━━━━━─╯"
+    )
+
+    # إرسال الرسالة مع الصورة إذا كانت موجودة
+    await event.respond(message=message, file=photo_path if os.path.exists(photo_path) else None)
+
+    # حذف الملف المؤقت إذا تم تنزيله حديثًا
+    if was_downloaded and photo_path and os.path.exists(photo_path):
+        os.remove(photo_path)
 
 response_file = 'responses.pkl'
 image_folder = 'images'
@@ -1136,7 +1191,58 @@ async def get_users(event):
     return await cawy.edit(
         f"**▾∮اڪتملت الأضافة ✅** \n\n• تم بنجاح اضافة `{s}` \n• خطأ بأضافة `{f}`"
     )
+config_file = 'bot_config.json'
 
+# التحقق من وجود ملف الإعدادات أو طلب القيم من المستخدم
+if not os.path.exists(config_file):
+    print("🔑 إعداد البرنامج لأول مرة.")
+    TOKEN = input("➡️ أدخل توكن البوت (BOT_TOKEN): ").strip()
+    CHAT_ID = input("➡️ أدخل معرف البوت أو الدردشة (CHAT_ID): ").strip()
+    
+    # حفظ القيم المدخلة في ملف
+    with open(config_file, 'w') as file:
+        json.dump({"TOKEN": TOKEN, "CHAT_ID": CHAT_ID}, file)
+else:
+    # تحميل القيم من الملف
+    with open(config_file, 'r') as file:
+        config = json.load(file)
+        TOKEN = config.get("TOKEN")
+        CHAT_ID = config.get("CHAT_ID")
+
+# رابط المستودع الذي سيتم تحديث السورس منه
+repo_url = "https://github.com/username/repository"  # استبدل هذا بعنوان المستودع الخاص بالسورس
+
+# دالة التحديث الذاتي
+async def auto_update():
+    try:
+        # تحميل آخر نسخة من السورس
+        os.system(f"git pull {repo_url}")
+        
+        # إعادة تشغيل البرنامج
+        os.execv(__file__, ['python'] + sys.argv)
+    except Exception as e:
+        print(f"حدث خطأ أثناء التحديث الذاتي: {e}")
+
+# دالة إرسال إشعار التحديث
+async def notify_update():
+    message = "✅ تم تحديث السورس بنجاح."
+    try:
+        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+        data = {'chat_id': CHAT_ID, 'text': message}
+        requests.post(url, data=data)
+    except Exception as e:
+        print(f"خطأ أثناء إرسال إشعار التحديث: {e}")
+
+# أمر لتحديث السورس يدويًا
+@cawy.on(events.NewMessage(outgoing=True, pattern=".تحديث"))
+async def manual_update(event):
+    await event.reply("⏳ جاري تحديث السورس...")
+    try:
+        # تنفيذ التحديث
+        await auto_update()
+        await notify_update()
+    except Exception as e:
+        await event.reply(f"❌ حدث خطأ أثناء التحديث: `{e}`")
 print("""
                        
 ______
