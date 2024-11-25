@@ -1210,7 +1210,7 @@ else:
         CHAT_ID = config.get("CHAT_ID")
 
 # رابط المستودع الذي سيتم تحديث السورس منه
-repo_url = "https://github.com/username/repository"  # استبدل هذا بعنوان المستودع الخاص بالسورس
+repo_url = "https://github.com/zeko1244/test"  # استبدل هذا بعنوان المستودع الخاص بالسورس
 
 # دالة التحديث الذاتي
 async def auto_update():
