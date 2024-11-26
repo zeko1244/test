@@ -37,7 +37,6 @@ from telethon.tl.functions.channels import GetParticipantsRequest
 from telethon.tl.types import ChannelParticipantsSearch
 from telethon.tl.types import Channel
 
-DEFAULTUSERBIO = input("[~] Enter BIO : ") or "Default BIO"
 APP_ID  = input("[~] Enter APP ID :")
 API_HASH = input("[~] Enter API HASH :")
 
